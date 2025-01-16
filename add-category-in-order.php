@@ -1,16 +1,11 @@
 <?php
+
 /**
  * Plugin Name: add category in order
+ *
  * Description: Customizes the order page by categorizing products based otheir categories.
- * Version: 1.0
- * Author: hassan ali askari 
- */
-/**
- * Plugin Name: Custom Product Search
  *
- * Description: A custom search plugin for WooCommerce products with AJAX functionality.
- *
- * Version: 2.0.0
+ * Version: 1.0.0
  *
  * Author: hassan Ali Askari
  * Author URI: https://t.me/hassan7303
@@ -26,49 +21,116 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
+add_filter('woocommerce_account_menu_items', 'add_custom_order_categories_link');
+add_action('init', 'add_custom_order_categories_endpoint');
+add_action('woocommerce_account_order-categories_endpoint', 'display_custom_order_categories_page');
 
 /**
- * Add custom order category column
+ * Add custom order categories link to the account menu
  * 
- * @param array $columns
+ * @param array $menu_links
  * 
  * @return array
  */
-function add_custom_order_category_column(array $columns):array
-{
-    $columns['order_categories'] = 'دسته‌بندی‌ها';
-    return $columns;
+function add_custom_order_categories_link(array $menu_links): array {
+    $menu_links['order-categories'] = 'دسته‌بندی سفارشات';
+    return $menu_links;
 }
-add_filter('woocommerce_my_account_my_orders_columns', 'add_custom_order_category_column');
 
 /**
- * Display custom order category column
- * 
- * @param WC_Order $order
+ * Add custom order categories endpoint
  * 
  * @return void
  */
-function display_custom_order_category_column(WC_Order $order):void
-{
-    $categories = [];
+function add_custom_order_categories_endpoint(): void {
+    add_rewrite_endpoint('order-categories', EP_ROOT | EP_PAGES);
+}
 
-    $items = $order->get_items();
-    foreach ($items as $item) {
-        $product_id = $item->get_product_id();
-        $product_categories = get_the_terms($product_id, 'product_cat');
+/**
+ * Display custom order categories page
+ * 
+ * @return void
+ */
+function display_custom_order_categories_page(): void {
+    $categories = get_terms([
+        'taxonomy' => 'product_cat',
+        'hide_empty' => false,
+    ]);
 
-        if ($product_categories && !is_wp_error($product_categories)) {
-            foreach ($product_categories as $category) {
-                $categories[] = $category->name;
+    if (!empty($categories)) {
+        echo '<h2>دسته‌بندی‌های سفارشات شما</h2>';
+        echo '<ul>';
+
+        foreach ($categories as $category) {
+            echo '<li>';
+            echo '<a href="' . esc_url(wc_get_endpoint_url('order-categories') . '?category=' . $category->slug) . '">' . esc_html($category->name) . '</a>';
+            echo '</li>';
+        }
+
+        echo '</ul>';
+
+        if (isset($_GET['category'])) {
+            $category_slug = sanitize_text_field($_GET['category']);
+            $category = get_term_by('slug', $category_slug, 'product_cat');
+
+            if ($category) {
+                echo '<h3>محصولات سفارش‌داده‌شده در دسته‌بندی: ' . esc_html($category->name) . '</h3>';
+                $products = get_products_in_category_ordered_by_user($category->term_id);
+
+                if (!empty($products)) {
+                    echo '<ul>';
+                    foreach ($products as $product) {
+                        echo '<li>' . esc_html($product->get_name()) . '</li>';
+                    }
+                    echo '</ul>';
+                } else {
+                    echo '<p>هیچ محصولی در این دسته‌بندی سفارش داده نشده است.</p>';
+                }
+            } else {
+                echo '<p>دسته‌بندی مورد نظر یافت نشد.</p>';
+            }
+        }
+    } else {
+        echo '<p>هیچ دسته‌بندی‌ای یافت نشد.</p>';
+    }
+}
+
+/**
+ * Get products ordered by user in a specific category, ordered by user
+ * 
+ * @param int $category_id
+ * 
+ * @return array
+ */
+function get_products_in_category_ordered_by_user(int $category_id): array {
+    $user_id = get_current_user_id();
+    $ordered_products = [];
+
+    $orders = wc_get_orders([
+        'customer_id' => $user_id,
+        'status' => 'completed',
+    ]);
+
+    foreach ($orders as $order) {
+        $items = $order->get_items();
+
+        foreach ($items as $item) {
+            $product_id = $item->get_product_id();
+            $product_categories = get_the_terms($product_id, 'product_cat');
+
+            if ($product_categories && !is_wp_error($product_categories)) {
+                foreach ($product_categories as $category) {
+                    if ($category->term_id == $category_id) {
+                        $ordered_products[] = wc_get_product($product_id);
+                        break;
+                    }
+                }
             }
         }
     }
 
-    $categories = array_unique($categories);
-
-    echo implode(', ', $categories);
+    return $ordered_products;
 }
-add_action('woocommerce_my_account_my_orders_column_order_categories', 'display_custom_order_category_column');
 
  
  /**
