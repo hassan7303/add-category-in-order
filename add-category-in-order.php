@@ -52,47 +52,193 @@ function add_custom_order_categories_endpoint(): void {
  * @return void
  */
 function display_custom_order_categories_page(): void {
+    ?>
+    <style>
+        .co_categories-title {
+            background: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 1px 0px #dddd;
+        }
+        .co_categories-list{
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            margin-top: 50px;
+            gap: 3%;
+        }
+        .co_categories-list li{
+            background: white;
+            padding: 10px 50px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 1px 0px #dddd;
+            margin-bottom: 20px;
+        }
+        .co_categories-list li a:hover{
+            color: black;
+            font-weight: bold;
+        }
+        .co_products-in-category{
+            background: white;
+            padding: 10px 26px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 1px 0px #dddd;
+        }
+        .co_products-in-category ul{
+            list-style: none;
+            display: flex;
+            justify-content: start;
+            padding-right: 0;
+            margin-right: 4.1%;
+            gap: 7%;
+            flex-wrap: wrap;
+        }
+        .co_products-in-category ul li{
+            position: relative;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .co_categories-list li.active-category {
+            font-weight: bold;
+            box-shadow: 0 4px 19px 1px #ddd;
+        }
+        .co_products-in-category ul li div{
+            width: 160px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: #dddddd4a;
+        }
+        .co_products-in-category h3{
+            font-size: 20px;
+            margin-top: 5px;
+        }
+        .co_products-in-category ul li div img{
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .co_products-in-category ul li div p{
+            margin: 10px 0 0;
+            font-size: 14px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        @media screen and (max-width: 780px) {
+            .co_categories-list {
+                margin-top: unset;
+                gap: 6%;
+                padding-right: 0;
+                flex-wrap: wrap;
+            }
+            .co_categories-list li {
+                margin-bottom: 15px;
+                width: 47%;
+                height: 50px;
+            }
+            .co_categories-list li a{
+                text-wrap-mode: nowrap;
+            }
+            .co_products-in-category h3{
+                font-size: 16px;
+            }
+        }
+        @media screen and (max-width: 500px) {
+            .co_products-in-category ul li div {
+                width: 140px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                background: #dddddd4a;
+            }
+            .co_products-in-category ul {
+                list-style: none;
+                display: flex;
+                justify-content: center;
+                padding-right: 0;
+                margin-right: unset;
+                gap: 3%;
+                flex-wrap: wrap;
+            }
+        }
+        @media screen and (max-width: 380px) {
+            .co_products-in-category ul li div {
+                width: 125px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: center;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                background: #dddddd4a;
+            }
+        }
+        
+    </style>
+    <?php
     $categories = get_terms([
         'taxonomy' => 'product_cat',
         'hide_empty' => false,
     ]);
-
-    if (!empty($categories)) {
-        echo '<h2>دسته‌بندی‌های سفارشات شما</h2>';
-        echo '<ul>';
-
-        foreach ($categories as $category) {
-            echo '<li>';
+    
+    echo '<h2 class="co_categories-title">دسته‌بندی‌ سفارشات شما </h2>';
+    echo '<ul class="co_categories-list">';
+    
+    echo '<li class="' . (empty($_GET['category']) ? 'active-category' : '') . '">';
+    echo '<a href="' . esc_url(wc_get_endpoint_url('order-categories')) . '">همه سفارشات</a>';
+    echo '</li>';
+    
+    foreach ($categories as $category) {
+        if (esc_html($category->name) !== "همه دسته‌ها") {
+            $is_active = isset($_GET['category']) && $_GET['category'] === $category->slug ? 'active-category' : '';
+            echo '<li class="' . esc_attr($is_active) . '">';
             echo '<a href="' . esc_url(wc_get_endpoint_url('order-categories') . '?category=' . $category->slug) . '">' . esc_html($category->name) . '</a>';
-            echo '</li>';
+            echo '</li>';  
         }
-
-        echo '</ul>';
-
-        if (isset($_GET['category'])) {
-            $category_slug = sanitize_text_field($_GET['category']);
-            $category = get_term_by('slug', $category_slug, 'product_cat');
-
-            if ($category) {
-                echo '<h3>محصولات سفارش‌داده‌شده در دسته‌بندی: ' . esc_html($category->name) . '</h3>';
-                $products = get_products_in_category_ordered_by_user($category->term_id);
-
-                if (!empty($products)) {
-                    echo '<ul>';
-                    foreach ($products as $product) {
-                        echo '<li>' . esc_html($product->get_name()) . '</li>';
-                    }
-                    echo '</ul>';
-                } else {
-                    echo '<p>هیچ محصولی در این دسته‌بندی سفارش داده نشده است.</p>';
-                }
-            } else {
-                echo '<p>دسته‌بندی مورد نظر یافت نشد.</p>';
-            }
+    }
+    
+    echo '</ul>';
+    
+    echo '<div class="co_products-in-category">';
+    
+    if (isset($_GET['category'])) {
+        $category_slug = sanitize_text_field($_GET['category']);
+        $category = get_term_by('slug', $category_slug, 'product_cat');
+        
+        if ($category) {
+            echo '<h3>محصولات سفارش‌داده‌شده در دسته‌بندی: ' . esc_html($category->name) . '</h3>';
+            $products = get_products_in_category_ordered_by_user($category->term_id);
+        } else {
+            echo '<p>دسته‌بندی مورد نظر یافت نشد.</p>';
+            return;
         }
     } else {
-        echo '<p>هیچ دسته‌بندی‌ای یافت نشد.</p>';
+        echo '<h3>همه محصولات سفارش داده‌شده</h3>';
+        $products = get_all_ordered_products_by_user();
     }
+    
+    if (!empty($products)) {
+        echo '<ul>';
+        foreach ($products as $product) {
+            $img_src = esc_url(get_the_post_thumbnail_url($product->get_id(), 'medium'));
+            if(empty($img_src)){
+                $img_src = "https://hezartoo.media/wp-content/uploads/logo-white-1.png";
+            }
+            echo "<li><div><img src='$img_src'><p>" . esc_html($product->get_name()) . '</p></div></li>';
+        }
+        echo '</ul>';
+    } else {
+        echo '<p>هیچ محصولی در این دسته‌بندی سفارش داده نشده است.</p>';
+    }
+    
+    echo '</div>';
 }
 
 /**
@@ -112,9 +258,7 @@ function get_products_in_category_ordered_by_user(int $category_id): array {
     ]);
 
     foreach ($orders as $order) {
-        $items = $order->get_items();
-
-        foreach ($items as $item) {
+        foreach ($order->get_items() as $item) {
             $product_id = $item->get_product_id();
             $product_categories = get_the_terms($product_id, 'product_cat');
 
@@ -128,12 +272,34 @@ function get_products_in_category_ordered_by_user(int $category_id): array {
             }
         }
     }
-
     return $ordered_products;
 }
 
- 
- /**
+
+/**
+ * Get products All ordered by user in a specific category, All ordered by user
+ *
+ * @return array
+ */
+function get_all_ordered_products_by_user(): array {
+    $user_id = get_current_user_id();
+    $ordered_products = [];
+
+    $orders = wc_get_orders([
+        'customer_id' => $user_id,
+        'status' => 'completed',
+    ]);
+
+    foreach ($orders as $order) {
+        foreach ($order->get_items() as $item) {
+            $ordered_products[] = wc_get_product($item->get_product_id());
+        }
+    }
+    return $ordered_products;
+}
+
+
+/**
  * Checks for plugin updates from GitHub and notifies WordPress.
  *
  * Fetches the latest release information from GitHub. If a newer version is available,
@@ -143,7 +309,8 @@ function get_products_in_category_ordered_by_user(int $category_id): array {
  * 
  * @return object Modified transient object with update details if available.
  */
-function check_for_plugin_update(object $transient):object
+
+ function check_for_plugin_update(object $transient):object
 {
     if (empty($transient->checked)) {
         return $transient;
